@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 import sys
+import os
 import socket
 import selectors
 import json
 from time import sleep
+
+# Importing from parent directory
+sys.path.append('..')
+import database as db
+import hashing_algorithms as ha
 
 HOST = '127.0.0.1'
 PORT = 6001
@@ -11,6 +17,19 @@ PORT = 6001
 sel = selectors.DefaultSelector()
 
 print('Starting AS server at ' + HOST + ' port ' + str(PORT))
+
+AS_db = db.load_database('AS_db')
+
+# Adds a new client via CLI params (add [name] [password])
+try:
+    if sys.argv[1] == 'add':
+        name = str(sys.argv[2])
+        password = ha.hash(str(sys.argv[3])).decode('utf-8')
+        print('Adding client - name: ' + name + ' password: ' + password[:4] + '***' + password[len(password) - 4:])
+        db.insert(AS_db, name, password)
+        db.save_database('AS_db', AS_db)
+except IndexError:
+    print('No new clients added.')
 
 def accept(sock, mask):
     conn, addr = sock.accept()
@@ -24,8 +43,18 @@ def worker(conn, mask):
     if data:
         request = json.loads(data.decode('utf-8'))
         print(str(conn.getpeername()) + ' sent: ' + str(request))
+        message = request['message']
 
         if request['action'] == 'auth':
+
+            decrypted = ha.aes_decrypt(message['encrypted_message'], 
+                AS_db[request['name']], 
+                message['nonce'], 
+                message['tag']
+            )
+
+            print(decrypted)
+
             conn.sendall(b'Authenticated.')
         else:
             conn.sendall(b'Unknown method.')

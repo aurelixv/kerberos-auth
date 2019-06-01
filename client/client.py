@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
+import sys
 import socket
 import json
 from os import system
+
+# Importing from parent directory
+sys.path.append('..')
+import database as db
+import hashing_algorithms as ha
 
 # Menu
 def menu():
@@ -34,7 +40,7 @@ def menu():
 
         option = 0
 
-# Comunica com o servidor AS
+# Start the connection with the AS Server
 def as_conn():
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -44,11 +50,12 @@ def as_conn():
 
             client_name = input('Name: ')
             encrypted_message = input('Debug message: ')
+            encrypted_message, nonce, tag = ha.aes_encrypt(encrypted_message, client_db['aurelio'])
 
             request = {
                 'action': 'auth',
                 'name': client_name,
-                'message': encrypted_message
+                'message': {'encrypted_message': encrypted_message, 'nonce': nonce, 'tag': tag}
             }
 
             s.sendall(json.dumps(request).encode('utf-8'))
@@ -69,4 +76,10 @@ def as_conn():
 if __name__ == '__main__':
     HOST = '127.0.0.1'
     AS_PORT = 6001
+
+    client_db = db.load_database('client_db')
+    db.insert(client_db, 'aurelio', ha.hash('master_password').decode('utf-8'))
+
     menu()
+
+    db.save_database('client_db', client_db)

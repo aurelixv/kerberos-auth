@@ -2,9 +2,11 @@ import hashlib
 from Crypto.Cipher import AES
 from base64 import b64encode, b64decode
 
-def hash(data, size):
+def hash(data, size = None):
     hashed_data = hashlib.sha512(data.encode('utf-8')).hexdigest()
-    return hashed_data[:size].encode('utf-8')
+    if size:
+        return hashed_data[:size].encode('utf-8')
+    return hashed_data.encode('utf-8')
 
 def aes_encrypt(data, key):
     data = data.encode('utf-8')
