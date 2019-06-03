@@ -12,7 +12,7 @@ import database as db
 import hashing_algorithms as ha
 
 HOST = '127.0.0.1'
-PORT = 6001
+PORT = 60001
 
 sel = selectors.DefaultSelector()
 
@@ -42,25 +42,64 @@ def worker(conn, mask):
     data = conn.recv(1024)
     if data:
         request = json.loads(data.decode('utf-8'))
+        print('------------------------------------------')
         print(str(conn.getpeername()) + ' sent: ' + str(request))
+        print('------------------------------------------')
         message = request['message']
 
-        if request['action'] == 'auth':
+        if request['action'] == 'auth' and request['ID_C'] in AS_db:
 
             decrypted = ha.aes_decrypt(message['encrypted_message'], 
-                AS_db[request['name']], 
+                AS_db[request['ID_C']], 
                 message['nonce'], 
                 message['tag']
             )
 
-            print(decrypted)
+            if decrypted:
+                decrypted = json.loads(decrypted)
 
-            conn.sendall(b'Authenticated.')
+                K_c_tgs = ha.random()
+
+                response = {}
+                response['K_c_tgs'] = K_c_tgs
+                response['N1'] = decrypted['N1']
+                encrypted_response, nonce, tag = ha.aes_encrypt(json.dumps(response), AS_db[request['ID_C']])
+                response = {
+                    'encrypted_message': encrypted_response,
+                    'nonce': nonce,
+                    'tag': tag
+                }
+
+                T_c_tgs = {}
+                T_c_tgs['ID_C'] = request['ID_C']
+                T_c_tgs['T_R'] = decrypted['T_R']
+                T_c_tgs['K_c_tgs'] = K_c_tgs
+                encrypted_T_c_tgs, nonce, tag = ha.aes_encrypt(json.dumps(T_c_tgs), AS_db['TGS'])
+                T_c_tgs = {
+                    'encrypted_message': encrypted_T_c_tgs,
+                    'nonce': nonce,
+                    'tag': tag
+                }
+                print('------------------------------------------')
+                print('K_c_tgs: ' + str(K_c_tgs))
+                print('------------------------------------------')
+                print('------------------------------------------')
+                print('Sending to client...')
+                print('Response: ' + str(response))
+                print('T_c_tgs: ' + str(T_c_tgs))
+                print('------------------------------------------')
+
+                conn.sendall(json.dumps({'response': response, 'T_c_tgs': T_c_tgs}).encode('utf-8'))
+            else:
+                conn.sendall(b'Error validating encrypted message.')
+
+            #print(decrypted)
+
         else:
-            conn.sendall(b'Unknown method.')
+            conn.sendall(b'Unknown method/client.')
 
     else:
-        print('Ending client ' + str(conn.getpeername()) + ' connection...', conn)
+        print('Ending client ' + str(conn.getpeername()) + ' connection...')
         sel.unregister(conn)
         conn.close()
 

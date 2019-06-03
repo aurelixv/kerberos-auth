@@ -1,4 +1,5 @@
 import hashlib
+import secrets
 from Crypto.Cipher import AES
 from base64 import b64encode, b64decode
 
@@ -21,10 +22,13 @@ def aes_decrypt(data, key, nonce, tag):
     data, nonce, tag = (b64decode(x) for x in (data, nonce, tag))
     key = hash(key, 32)
     cipher = AES.new(key, AES.MODE_EAX, nonce)
-    plaintext = cipher.decrypt(data).decode('utf-8')
     try:
+        plaintext = cipher.decrypt(data).decode('utf-8')
         cipher.verify(tag)
         return plaintext
     except:
-        print('Erro na verificacao da criptografia.')
-        return
+        print('Error validating encrypted message.')
+        return None
+
+def random():
+    return secrets.token_urlsafe(16)
