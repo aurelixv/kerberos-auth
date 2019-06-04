@@ -47,7 +47,7 @@ def worker(conn, mask):
         print('------------------------------------------')
         message = request['message']
 
-        if request['action'] == 'auth' and request['ID_C'] in AS_db:
+        if request['ID_C'] in AS_db:
 
             decrypted = ha.aes_decrypt(message['encrypted_message'], 
                 AS_db[request['ID_C']], 
@@ -82,7 +82,6 @@ def worker(conn, mask):
                 }
                 print('------------------------------------------')
                 print('K_c_tgs: ' + str(K_c_tgs))
-                print('------------------------------------------')
                 print('------------------------------------------')
                 print('Sending to client...')
                 print('Response: ' + str(response))

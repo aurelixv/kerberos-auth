@@ -30,5 +30,5 @@ def aes_decrypt(data, key, nonce, tag):
         print('Error validating encrypted message.')
         return None
 
-def random():
-    return secrets.token_urlsafe(16)
+def random(size = 32):
+    return secrets.token_urlsafe(size)

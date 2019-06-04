@@ -44,7 +44,6 @@ def worker(conn, mask):
         request = json.loads(data.decode('utf-8'))
         print('------------------------------------------')
         print(str(conn.getpeername()) + ' sent: ' + str(request))
-        print('------------------------------------------')
 
         T_c_tgs = request['T_c_tgs']
         message = request['message']
@@ -59,7 +58,6 @@ def worker(conn, mask):
         print('------------------------------------------')
         print('Decrypted TGS ticket from the AS server: ')
         print(decrypted_T_c_tgs)
-        print('------------------------------------------')
 
         decrypted_T_c_tgs = json.loads(decrypted_T_c_tgs)
 
@@ -73,13 +71,46 @@ def worker(conn, mask):
         print('------------------------------------------')
         print('Decrypted message from client with the AS token key: ')
         print(decrypted_message)
-        print('------------------------------------------')
 
+        decrypted_message = json.loads(decrypted_message)
 
         if decrypted_message['ID_S'] in TGS_db:
+
             K_c_s = ha.random()
-            T_A = 5
-            N2 = decrypted_message['N2']
+
+            response = {
+                'K_c_s': K_c_s,
+                'T_A': 5,
+                'N2': decrypted_message['N2']
+            }
+            encrypted_message, nonce, tag = ha.aes_encrypt(json.dumps(response), decrypted_T_c_tgs['K_c_tgs'])
+            response = {
+                'encrypted_message': encrypted_message,
+                'nonce': nonce,
+                'tag': tag
+            }
+
+            T_c_s = {
+                'ID_C': decrypted_T_c_tgs['ID_C'],
+                'T_A': 5,
+                'K_c_s': K_c_s
+            }
+            encrypted_message, nonce, tag = ha.aes_encrypt(json.dumps(T_c_s), TGS_db[decrypted_message['ID_S']])
+            T_c_s = {
+                'encrypted_message': encrypted_message,
+                'nonce': nonce,
+                'tag': tag
+            }
+
+            print('------------------------------------------')
+            print('K_c_s: ' + str(K_c_s))
+            print('------------------------------------------')
+            print('Sending to client...')
+            print('Response: ' + str(response))
+            print('T_c_s: ' + str(T_c_s))
+            print('------------------------------------------')
+
+            conn.sendall(json.dumps({'response': response, 'T_c_s': T_c_s}).encode('utf-8'))
         else:
             conn.sendall(b'Unknown service.')
 
