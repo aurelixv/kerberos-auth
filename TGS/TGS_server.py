@@ -4,6 +4,7 @@ import os
 import socket
 import selectors
 import json
+from datetime import datetime, timedelta
 
 # Importing from parent directory
 sys.path.append('..')
@@ -84,9 +85,11 @@ def worker(conn, mask):
 
             K_c_s = ha.random()
 
+            T_a = datetime.now() + timedelta(0, decrypted_T_c_tgs['T_R'])
+
             response = {
                 'K_c_s': K_c_s,
-                'T_A': 5,
+                'T_A': str(T_a),
                 'N2': decrypted_message['N2']
             }
 
@@ -106,7 +109,7 @@ def worker(conn, mask):
 
             T_c_s = {
                 'ID_C': decrypted_T_c_tgs['ID_C'],
-                'T_A': 5,
+                'T_A': str(T_a),
                 'K_c_s': K_c_s
             }
 
