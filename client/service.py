@@ -25,7 +25,7 @@ try:
     message_ID_C = decrypted_message['ID_C']
     T_a = decrypted_T_c_s['T_A']
     T_a = datetime.strptime(T_a, '%Y-%m-%d %H:%M:%S.%f')
-except IndentationError:
+except:
     print('Error reading the ticket.')
     sys.exit(1)
 
