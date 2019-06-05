@@ -4,7 +4,6 @@ import os
 import socket
 import selectors
 import json
-from time import sleep
 
 # Importing from parent directory
 sys.path.append('..')
@@ -32,6 +31,9 @@ except IndexError:
     print('No new clients added.')
 
 def accept(sock, mask):
+
+    os.system('clear')
+
     conn, addr = sock.accept()
     print('Client connected ' + str(addr))
     conn.setblocking(False)    
@@ -43,8 +45,7 @@ def worker(conn, mask):
     if data:
         request = json.loads(data.decode('utf-8'))
         print('------------------------------------------')
-        print(str(conn.getpeername()) + ' sent: ' + str(request))
-        print('------------------------------------------')
+        print(str(conn.getpeername()) + ' sent M1: ' + str(request))
         message = request['message']
 
         if request['ID_C'] in AS_db:
@@ -55,14 +56,28 @@ def worker(conn, mask):
                 message['tag']
             )
 
+            print('------------------------------------------')
+            print('K_c:')
+            print(AS_db[request['ID_C']])
+
             if decrypted:
                 decrypted = json.loads(decrypted)
 
+                print('------------------------------------------')
+                print('Decrypted:')
+                print(decrypted)
+
                 K_c_tgs = ha.random()
 
-                response = {}
-                response['K_c_tgs'] = K_c_tgs
-                response['N1'] = decrypted['N1']
+                response = {
+                    'K_c_tgs': K_c_tgs,
+                    'N1': decrypted['N1']
+                }
+
+                print('------------------------------------------')
+                print('Response:')
+                print(response)
+
                 encrypted_response, nonce, tag = ha.aes_encrypt(json.dumps(response), AS_db[request['ID_C']])
                 response = {
                     'encrypted_message': encrypted_response,
@@ -70,20 +85,28 @@ def worker(conn, mask):
                     'tag': tag
                 }
 
-                T_c_tgs = {}
-                T_c_tgs['ID_C'] = request['ID_C']
-                T_c_tgs['T_R'] = decrypted['T_R']
-                T_c_tgs['K_c_tgs'] = K_c_tgs
+                T_c_tgs = {
+                    'ID_C': request['ID_C'],
+                    'T_R': decrypted['T_R'],
+                    'K_c_tgs': K_c_tgs
+                }
+
+                print('------------------------------------------')
+                print('T_c_tgs:')
+                print(T_c_tgs)
+                print('------------------------------------------')
+                print('K_tgs:')
+                print(AS_db['TGS'])
+
                 encrypted_T_c_tgs, nonce, tag = ha.aes_encrypt(json.dumps(T_c_tgs), AS_db['TGS'])
                 T_c_tgs = {
                     'encrypted_message': encrypted_T_c_tgs,
                     'nonce': nonce,
                     'tag': tag
                 }
+
                 print('------------------------------------------')
-                print('K_c_tgs: ' + str(K_c_tgs))
-                print('------------------------------------------')
-                print('Sending to client...')
+                print('Sending M2 to client...')
                 print('Response: ' + str(response))
                 print('T_c_tgs: ' + str(T_c_tgs))
                 print('------------------------------------------')
@@ -102,7 +125,7 @@ def worker(conn, mask):
         sel.unregister(conn)
         conn.close()
 
-socket =  socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 socket.bind((HOST, PORT))
 socket.listen()
 socket.setblocking(False)

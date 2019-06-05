@@ -4,7 +4,6 @@ import os
 import socket
 import selectors
 import json
-from time import sleep
 
 # Importing from parent directory
 sys.path.append('..')
@@ -32,6 +31,9 @@ except IndexError:
     print('No new service added.')
 
 def accept(sock, mask):
+
+    os.system('clear')
+
     conn, addr = sock.accept()
     print('Client connected ' + str(addr))
     conn.setblocking(False)    
@@ -43,7 +45,7 @@ def worker(conn, mask):
     if data:
         request = json.loads(data.decode('utf-8'))
         print('------------------------------------------')
-        print(str(conn.getpeername()) + ' sent: ' + str(request))
+        print(str(conn.getpeername()) + ' sent M3: ' + str(request))
 
         T_c_tgs = request['T_c_tgs']
         message = request['message']
@@ -54,12 +56,12 @@ def worker(conn, mask):
             T_c_tgs['nonce'], 
             T_c_tgs['tag']
         )
+        decrypted_T_c_tgs = json.loads(decrypted_T_c_tgs)
 
         print('------------------------------------------')
         print('Decrypted TGS ticket from the AS server: ')
         print(decrypted_T_c_tgs)
 
-        decrypted_T_c_tgs = json.loads(decrypted_T_c_tgs)
 
         decrypted_message = ha.aes_decrypt(
             message['encrypted_message'],
@@ -67,14 +69,18 @@ def worker(conn, mask):
             message['nonce'],
             message['tag']
         )
+        decrypted_message = json.loads(decrypted_message)
 
         print('------------------------------------------')
         print('Decrypted message from client with the AS token key: ')
         print(decrypted_message)
 
-        decrypted_message = json.loads(decrypted_message)
-
         if decrypted_message['ID_S'] in TGS_db:
+
+            if decrypted_T_c_tgs['ID_C'] != decrypted_message['ID_C'] or decrypted_T_c_tgs['T_R'] != decrypted_message['T_R']:
+                print('Error validating data.')
+                conn.sendall(b'Error validating data.')
+                return
 
             K_c_s = ha.random()
 
@@ -83,6 +89,14 @@ def worker(conn, mask):
                 'T_A': 5,
                 'N2': decrypted_message['N2']
             }
+
+            print('------------------------------------------')
+            print('Response:')
+            print(response)
+            print('------------------------------------------')
+            print('K_c_tgs:')
+            print(decrypted_T_c_tgs['K_c_tgs'])
+
             encrypted_message, nonce, tag = ha.aes_encrypt(json.dumps(response), decrypted_T_c_tgs['K_c_tgs'])
             response = {
                 'encrypted_message': encrypted_message,
@@ -95,6 +109,14 @@ def worker(conn, mask):
                 'T_A': 5,
                 'K_c_s': K_c_s
             }
+
+            print('------------------------------------------')
+            print('T_c_s:')
+            print(T_c_s)
+            print('------------------------------------------')
+            print('K_s:')
+            print(TGS_db[decrypted_message['ID_S']])
+
             encrypted_message, nonce, tag = ha.aes_encrypt(json.dumps(T_c_s), TGS_db[decrypted_message['ID_S']])
             T_c_s = {
                 'encrypted_message': encrypted_message,
@@ -103,9 +125,7 @@ def worker(conn, mask):
             }
 
             print('------------------------------------------')
-            print('K_c_s: ' + str(K_c_s))
-            print('------------------------------------------')
-            print('Sending to client...')
+            print('Sending M4 to client...')
             print('Response: ' + str(response))
             print('T_c_s: ' + str(T_c_s))
             print('------------------------------------------')

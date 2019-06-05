@@ -21,7 +21,12 @@ def menu():
         system('clear')
         while option < 1 or option > 9:
             print('\n --- Client App ---\n')
-            print('Variables: ' + str(variables))
+            
+            if len(variables) > 0:
+                for variable in variables:
+                    print(str(variable) + ': ' + str(variables[variable]))
+                print('')
+
             print('(1) AS Server')
             print('(2) TGS Server')
             print('(3) Generate Service Ticket')
@@ -77,6 +82,9 @@ def as_conn():
             print('------------------------------------------')
             print('Message:')
             print(message)
+            print('------------------------------------------')
+            print('K_c:')
+            print(variables['K_c'])
             
             encrypted_message, nonce, tag = ha.aes_encrypt(message, variables['K_c'])
 
@@ -90,7 +98,7 @@ def as_conn():
                 }
             }
             print('------------------------------------------')
-            print('Sending to server...')
+            print('Sending M1 to server...')
             print(request)
 
             s.sendall(json.dumps(request).encode('utf-8'))
@@ -98,13 +106,14 @@ def as_conn():
             data = s.recv(1024)
 
             if data:
-                data = data.decode('utf-8')
-                print('------------------------------------------')
-                print('Received from server:')
-                print(data)
                 try:
+                    data = data.decode('utf-8')
                     AS_response = json.loads(data)
                     response = AS_response['response']
+                    
+                    print('------------------------------------------')
+                    print('Received M2 from server:')
+                    print(data)
 
                     decrypted = ha.aes_decrypt(response['encrypted_message'], 
                         variables['K_c'], 
@@ -114,12 +123,12 @@ def as_conn():
                     decrypted = json.loads(decrypted)
 
                     print('------------------------------------------')
-                    print('K_c_tgs: ' + decrypted['K_c_tgs'])
+                    print('Decrypted response:')
+                    print(decrypted)
                     print('------------------------------------------')
 
                     variables['K_c_tgs'] = decrypted['K_c_tgs']
-                    variables['T_c_tgs'] = AS_response['T_c_tgs']
-                    
+                    variables['T_c_tgs'] = AS_response['T_c_tgs'] 
                 except:
                     print(data)
             else:
@@ -133,6 +142,11 @@ def as_conn():
 
 # Start the connection with the TGS Server
 def tgs_conn():
+
+    if 'K_c_tgs' not in variables:
+        input('Error: K_c_tgs not defined.')
+        return
+
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((HOST, TGS_PORT))
@@ -141,8 +155,10 @@ def tgs_conn():
 
             message = {
                 'ID_C': variables['ID_C'],
+                #'ID_C': 'teste',
                 'ID_S': variables['ID_S'],
                 'T_R': variables['T_R'],
+                #'T_R': 1,
                 'N2': ha.random(16)
             }
             message = json.dumps(message)
@@ -150,6 +166,9 @@ def tgs_conn():
             print('------------------------------------------')
             print('Message:')
             print(message)
+            print('------------------------------------------')
+            print('K_c_tgs:')
+            print(variables['K_c_tgs'])
             
             encrypted_message, nonce, tag = ha.aes_encrypt(message, 
                 variables['K_c_tgs'])
@@ -164,7 +183,7 @@ def tgs_conn():
             }
 
             print('------------------------------------------')
-            print('Sending to server...')
+            print('Sending M3 to server...')
             print(request)
 
             s.sendall(json.dumps(request).encode('utf-8'))
@@ -172,14 +191,15 @@ def tgs_conn():
             data = s.recv(1024)
 
             if data:
-                data = data.decode('utf-8')
-                print('------------------------------------------')
-                print('Received from server:')
-                print(data)
                 try:
+                    data = data.decode('utf-8')
                     TGS_response = json.loads(data)
                     response = TGS_response['response']
                     T_c_s = TGS_response['T_c_s']
+
+                    print('------------------------------------------')
+                    print('Received M4 from server:')
+                    print(data)
                     
                     decrypted = ha.aes_decrypt(
                         response['encrypted_message'],
@@ -190,11 +210,9 @@ def tgs_conn():
 
                     decrypted = json.loads(decrypted)
 
-                    print(decrypted)
-
                     print('------------------------------------------')
-                    print('K_c_s: ' + decrypted['K_c_s'])
-                    print('T_A: ' + str(decrypted['T_A']))
+                    print('Decrypted response:')
+                    print(decrypted)
                     print('------------------------------------------')
 
                     variables['K_c_s'] = decrypted['K_c_s']
@@ -215,6 +233,10 @@ def tgs_conn():
 def service_ticket():
 
     # M5 = [{ID_C + (T_A ou T_R) + S_R + N3}K_c_s + T_c_s]
+
+    if 'K_c_s' not in variables:
+        input('Error: K_c_s not defined.')
+        return
 
     request = {
         'ID_C': variables['ID_C'],
@@ -237,7 +259,7 @@ def service_ticket():
     request = {'message': request, 'T_c_s': variables['T_c_s']}
 
     print('------------------------------------------')
-    print('Saving Service Ticket...')
+    print('Saving M5 Service Ticket...')
     print(request)
     print('------------------------------------------')
 
